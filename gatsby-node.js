@@ -13,8 +13,8 @@ exports.sourceNodes = async (
   async function createDocumentNode({ type, parent = null }) {
     // contruct firestore collectionName for current type
     const collectionName =
-      parent && parent.collectionName
-        ? `${parent.collectionName}/${parent.id}/${type.collection}`
+      parent && parent.id
+        ? `${parent.id}/${type.collection}`
         : type.collection;
 
     // get records for current type from firestore
@@ -23,6 +23,7 @@ exports.sourceNodes = async (
     snapshot.forEach(doc => {
       promises.push(
         new Promise(async resolve => {
+          const id = `${collectionName}/${doc.id}`
           let children = [];
           if (type.subCollections) {
             // if any subCollections exists, recursively create new nodes
@@ -30,7 +31,7 @@ exports.sourceNodes = async (
               type.subCollections.map(subCollection =>
                 createDocumentNode({
                   type: subCollection,
-                  parent: { id: doc.id, ...type, collectionName },
+                  parent: { id, ...type, collectionName },
                 })
               )
             );
@@ -41,17 +42,18 @@ exports.sourceNodes = async (
           }
           // create node for current type
           createNode({
-            id: doc.id,
+            id,
+            docId: doc.id,
             parent: parent ? parent.id : null,
             children,
             internal: {
               type: type.type,
-              contentDigest: createContentDigest(doc.id),
+              contentDigest: createContentDigest(id),
             },
             ...type.map(doc.data()),
           });
           // resolve with current document ID
-          resolve(doc.id);
+          resolve(id);
         })
       );
     });
